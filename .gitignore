@@ -4,3 +4,4 @@ printscreens/
 *.user
 *.suo
 .vs/
+.claude/
