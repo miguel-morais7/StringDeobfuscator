@@ -1,0 +1,117 @@
+<Window x:Class="StringDeobfuscator.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        Icon="app-icon.png"
+        Title="String Deobfuscator"
+        Width="640" Height="520"
+        MinWidth="500" MinHeight="420"
+        WindowStartupLocation="CenterScreen"
+        Background="#1a1a2e"
+        ResizeMode="CanResizeWithGrip"
+        AllowDrop="True"
+        DragOver="Window_DragOver"
+        Drop="Window_Drop">
+
+    <Grid Margin="24">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+
+        <!-- Header -->
+        <StackPanel Grid.Row="0" Margin="0,0,0,16">
+            <TextBlock Text="String Deobfuscator"
+                       FontSize="24" FontWeight="Bold"
+                       Foreground="#e94560"
+                       HorizontalAlignment="Center"/>
+            <TextBlock Text="Drop or select the DLLs to deobfuscate"
+                       FontSize="13" Foreground="#8888aa"
+                       HorizontalAlignment="Center" Margin="0,4,0,0"/>
+        </StackPanel>
+
+        <!-- DLL list / drop zone -->
+        <Border Grid.Row="1" Background="#16213e" CornerRadius="8"
+                BorderBrush="#0f3460" BorderThickness="2" Padding="12,8"
+                Margin="0,0,0,12"
+                AllowDrop="True"
+                DragOver="Window_DragOver"
+                Drop="Window_Drop">
+            <Grid>
+                <!-- Placeholder when no DLLs added -->
+                <StackPanel x:Name="DropPlaceholder"
+                            VerticalAlignment="Center" HorizontalAlignment="Center">
+                    <TextBlock Text="Drag &amp; drop .dll files here"
+                               FontSize="16" Foreground="#555577"
+                               HorizontalAlignment="Center"/>
+                    <TextBlock Text="or"
+                               FontSize="13" Foreground="#444466"
+                               HorizontalAlignment="Center" Margin="0,6,0,6"/>
+                    <Button Content="Browse Files"
+                            FontSize="13" FontWeight="SemiBold"
+                            Foreground="White" Cursor="Hand"
+                            Click="BrowseFiles_Click">
+                        <Button.Template>
+                            <ControlTemplate TargetType="Button">
+                                <Border CornerRadius="6" Background="#0f3460" Padding="20,8">
+                                    <ContentPresenter HorizontalAlignment="Center"
+                                                      VerticalAlignment="Center"/>
+                                </Border>
+                                <ControlTemplate.Triggers>
+                                    <Trigger Property="IsMouseOver" Value="True">
+                                        <Setter Property="Opacity" Value="0.85"/>
+                                    </Trigger>
+                                </ControlTemplate.Triggers>
+                            </ControlTemplate>
+                        </Button.Template>
+                    </Button>
+                </StackPanel>
+
+                <!-- DLL items list -->
+                <ScrollViewer x:Name="DllListScroller" VerticalScrollBarVisibility="Auto"
+                              Visibility="Collapsed">
+                    <StackPanel x:Name="DllListPanel"/>
+                </ScrollViewer>
+            </Grid>
+        </Border>
+
+        <!-- Patch button -->
+        <Button x:Name="PatchButton" Grid.Row="2"
+                Content="Patch DLL"
+                FontSize="16" FontWeight="Bold"
+                Foreground="White"
+                Height="48"
+                Cursor="Hand"
+                Click="PatchButton_Click"
+                IsEnabled="False">
+            <Button.Template>
+                <ControlTemplate TargetType="Button">
+                    <Border x:Name="Bd" CornerRadius="10"
+                            Background="#e94560" Padding="20,8">
+                        <ContentPresenter HorizontalAlignment="Center"
+                                          VerticalAlignment="Center"/>
+                    </Border>
+                    <ControlTemplate.Triggers>
+                        <Trigger Property="IsEnabled" Value="False">
+                            <Setter TargetName="Bd" Property="Background" Value="#44475a"/>
+                            <Setter Property="Foreground" Value="#666680"/>
+                        </Trigger>
+                        <Trigger Property="IsMouseOver" Value="True">
+                            <Setter TargetName="Bd" Property="Background" Value="#ff6b81"/>
+                        </Trigger>
+                    </ControlTemplate.Triggers>
+                </ControlTemplate>
+            </Button.Template>
+        </Button>
+
+        <!-- Status bar -->
+        <TextBlock x:Name="StatusText" Grid.Row="3"
+                   Text="" FontSize="12"
+                   Foreground="#8888aa"
+                   HorizontalAlignment="Center"
+                   VerticalAlignment="Top"
+                   Margin="0,12,0,0"
+                   TextWrapping="Wrap"/>
+    </Grid>
+</Window>

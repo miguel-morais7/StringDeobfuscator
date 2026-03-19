@@ -1,5 +1,6 @@
 bin/
 obj/
+printscreens/
 *.user
 *.suo
 .vs/
