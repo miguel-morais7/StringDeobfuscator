@@ -5,23 +5,24 @@ using dnlib.DotNet.Emit;
 
 namespace StringDeobfuscator;
 
-public record DeobfuscationResult(int PatchCount, int ResourcesRemoved, int FexTypeCount);
+public record DeobfuscationResult(int PatchCount, int ResourcesRemoved, int ObfuscatorTypeCount);
 
 public static class Deobfuscator
 {
     public static DeobfuscationResult Deobfuscate(string dllPath, string outputPath)
     {
-        // Step 1: Discover the string accessor method
+        // Step 1: Discover the string accessor method by structural analysis.
+        // The obfuscator's accessor is a static string(int) method called from many
+        // sites with a constant integer argument (ldc.i4 + call pattern).
         string? accessorTypeName = null;
         string? accessorMethodName = null;
-        var fexTypeNames = new HashSet<string>();
         var candidateAccessors = new List<(string typeName, string methodName, uint mdToken)>();
 
         using (var scanModule = ModuleDefMD.Load(dllPath))
         {
-            foreach (var type in scanModule.Types.Where(t => t.Name.String.StartsWith("fex#")))
+            // Find all static string(int) methods across the entire assembly
+            foreach (var type in scanModule.GetTypes())
             {
-                fexTypeNames.Add(type.Name.String);
                 foreach (var m in type.Methods.Where(m => m.IsStatic && m.HasBody))
                 {
                     if (m.ReturnType.FullName == "System.String" &&
@@ -34,36 +35,36 @@ public static class Deobfuscator
             }
 
             if (candidateAccessors.Count == 0)
-                throw new InvalidOperationException("No string accessor method found (no static string(int) on a fex# type).");
+                throw new InvalidOperationException("No string accessor method found (no static string(int) method in the assembly).");
 
-            if (candidateAccessors.Count == 1)
+            // Score each candidate by counting ldc.i4+call pattern hits (single IL walk)
+            var constantCallCounts = candidateAccessors.ToDictionary(c => c.mdToken, c => 0);
+
+            foreach (var type in scanModule.GetTypes())
             {
-                accessorTypeName = candidateAccessors[0].typeName;
-                accessorMethodName = candidateAccessors[0].methodName;
-            }
-            else
-            {
-                var callCounts = candidateAccessors.ToDictionary(c => c.mdToken, c => 0);
-                foreach (var type in scanModule.GetTypes().Where(t => !t.Name.String.StartsWith("fex#")))
+                foreach (var method in type.Methods.Where(m => m.HasBody))
                 {
-                    foreach (var method in type.Methods.Where(m => m.HasBody))
+                    var instructions = method.Body.Instructions;
+                    for (int i = 1; i < instructions.Count; i++)
                     {
-                        foreach (var instr in method.Body.Instructions)
+                        if (instructions[i].OpCode == OpCodes.Call &&
+                            instructions[i].Operand is IMethod called &&
+                            constantCallCounts.ContainsKey(called.MDToken.Raw) &&
+                            GetLdcI4Value(instructions[i - 1]) != null)
                         {
-                            if (instr.OpCode == OpCodes.Call && instr.Operand is IMethod called &&
-                                callCounts.ContainsKey(called.MDToken.Raw))
-                            {
-                                callCounts[called.MDToken.Raw]++;
-                            }
+                            constantCallCounts[called.MDToken.Raw]++;
                         }
                     }
                 }
-
-                var best = callCounts.OrderByDescending(kv => kv.Value).First();
-                var bestCandidate = candidateAccessors.First(c => c.mdToken == best.Key);
-                accessorTypeName = bestCandidate.typeName;
-                accessorMethodName = bestCandidate.methodName;
             }
+
+            var best = constantCallCounts.OrderByDescending(kv => kv.Value).First();
+            if (best.Value < 2)
+                throw new InvalidOperationException("No obfuscated string accessor found (no static string(int) method with enough constant-call patterns).");
+
+            var bestCandidate = candidateAccessors.First(c => c.mdToken == best.Key);
+            accessorTypeName = bestCandidate.typeName;
+            accessorMethodName = bestCandidate.methodName;
         }
 
         // Step 2: Scan IL to collect all unique offsets
@@ -180,7 +181,7 @@ public static class Deobfuscator
         Directory.CreateDirectory(Path.GetDirectoryName(outputPath)!);
         patchModule.Write(outputPath);
 
-        return new DeobfuscationResult(patchCount, resToRemove.Count, fexTypeNames.Count);
+        return new DeobfuscationResult(patchCount, resToRemove.Count, 1);
     }
 
     private static int? GetLdcI4Value(Instruction instr)
